@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Alert,
   Box,
+  Button,
   CircularProgress,
   Divider,
   FormControl,
@@ -9,6 +10,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import StarIcon from '@mui/icons-material/Star';
@@ -18,6 +20,7 @@ import { fetchNotifications } from '../api/notifications';
 import { sortNotifications } from '../utils/prioritySort';
 import { markAsRead } from '../utils/readTracker';
 import { Log } from '../utils/logger';
+import { clearAuthCache, getStoredAccessCode, setStoredAccessCode } from '../api/auth';
 
 const TOP_N_OPTIONS = [10, 15, 20];
 
@@ -27,6 +30,9 @@ export function PriorityPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [demoMode, setDemoMode] = useState(false);
+  const [accessCode, setAccessCode] = useState(getStoredAccessCode());
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,12 +47,14 @@ export function PriorityPage() {
           const sorted = sortNotifications(data.notifications ?? []);
           const top = sorted.slice(0, topN);
           setNotifications(top);
+          setDemoMode(Boolean(data.demoMode));
           Log('frontend', 'info', 'page', `PriorityPage loaded top ${top.length} notifications`);
         }
       })
       .catch((err) => {
         if (!cancelled) {
           setError(err.message ?? 'Unknown error');
+          setDemoMode(false);
           Log('frontend', 'error', 'page', `PriorityPage fetch error: ${err.message}`);
         }
       })
@@ -55,7 +63,7 @@ export function PriorityPage() {
       });
 
     return () => { cancelled = true; };
-  }, [topN, filter]);
+  }, [topN, filter, refreshKey]);
 
   // Mark visible priority notifications as read after 3 seconds.
   useEffect(() => {
@@ -67,6 +75,16 @@ export function PriorityPage() {
   }, [notifications]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const authError = useMemo(() => {
+    const message = error ?? '';
+    return message.includes('given access code is invalid') || message.includes('Auth failed: 401');
+  }, [error]);
+
+  const handleSaveAccessCode = () => {
+    setStoredAccessCode(accessCode.trim());
+    clearAuthCache();
+    setRefreshKey((value) => value + 1);
+  };
 
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', px: 2, py: 4 }}>
@@ -86,6 +104,12 @@ export function PriorityPage() {
       </Typography>
 
       <Divider sx={{ mb: 3 }} />
+
+      {demoMode && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Showing demo notifications because the evaluation backend rejected the current access code.
+        </Alert>
+      )}
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={3} alignItems={{ sm: 'center' }}>
         <NotificationFilter value={filter} onChange={(v) => setFilter(v)} />
@@ -112,7 +136,23 @@ export function PriorityPage() {
       )}
 
       {!loading && error && (
-        <Alert severity="error">Failed to load notifications: {error}</Alert>
+        <Stack spacing={2}>
+          <Alert severity="error">Failed to load notifications: {error}</Alert>
+          {authError && (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
+              <TextField
+                size="small"
+                label="Access code"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                sx={{ flex: 1 }}
+              />
+              <Button variant="contained" onClick={handleSaveAccessCode}>
+                Save & Retry
+              </Button>
+            </Stack>
+          )}
+        </Stack>
       )}
 
       {!loading && !error && notifications.length === 0 && (

@@ -1,12 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
   Box,
+  Button,
   CircularProgress,
   Divider,
   Pagination,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -15,14 +17,17 @@ import { NotificationCard } from '../components/NotificationCard';
 import { NotificationFilter } from '../components/NotificationFilter';
 import { SearchBar } from '../components/SearchBar';
 import { useNotifications } from '../hooks/useNotifications';
+import { clearAuthCache, getStoredAccessCode, setStoredAccessCode } from '../api/auth';
 
 export function NotificationsPage() {
   const [filter, setFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [accessCode, setAccessCode] = useState(getStoredAccessCode());
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const { notifications, totalPages, unreadCount, loading, error } =
-    useNotifications({ filter, page, search });
+  const { notifications, totalPages, unreadCount, loading, error, demoMode } =
+    useNotifications({ filter, page, search, refreshKey });
 
   const handleFilterChange = (newFilter) => {
     setFilter(newFilter);
@@ -40,6 +45,17 @@ export function NotificationsPage() {
     setPage(1);
   }, []);
 
+  const authError = useMemo(() => {
+    const message = error ?? '';
+    return message.includes('given access code is invalid') || message.includes('Auth failed: 401');
+  }, [error]);
+
+  const handleSaveAccessCode = () => {
+    setStoredAccessCode(accessCode.trim());
+    clearAuthCache();
+    setRefreshKey((value) => value + 1);
+  };
+
   return (
     <Box sx={{ maxWidth: 720, mx: 'auto', px: 2, py: 4 }}>
       <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
@@ -53,6 +69,12 @@ export function NotificationsPage() {
 
       <Divider sx={{ mb: 3 }} />
 
+      {demoMode && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Showing demo notifications because the evaluation backend rejected the current access code.
+        </Alert>
+      )}
+
       <Stack spacing={2} mb={3}>
         <SearchBar onSearch={handleSearch} />
         <NotificationFilter value={filter} onChange={handleFilterChange} />
@@ -65,7 +87,23 @@ export function NotificationsPage() {
       )}
 
       {!loading && error && (
-        <Alert severity="error">Failed to load notifications: {error}</Alert>
+        <Stack spacing={2}>
+          <Alert severity="error">Failed to load notifications: {error}</Alert>
+          {authError && (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
+              <TextField
+                size="small"
+                label="Access code"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                sx={{ flex: 1 }}
+              />
+              <Button variant="contained" onClick={handleSaveAccessCode}>
+                Save & Retry
+              </Button>
+            </Stack>
+          )}
+        </Stack>
       )}
 
       {!loading && !error && notifications.length === 0 && (

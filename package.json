@@ -1,0 +1,11 @@
+{
+  "name": "affordmed-frontend-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "npm --prefix Campus-Evaluation-FS/notification-app-fe run dev",
+    "build": "npm --prefix Campus-Evaluation-FS/notification-app-fe run build",
+    "lint": "npm --prefix Campus-Evaluation-FS/notification-app-fe run lint",
+    "preview": "npm --prefix Campus-Evaluation-FS/notification-app-fe run preview"
+  }
+}

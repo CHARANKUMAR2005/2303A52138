@@ -7,10 +7,11 @@ import { PAGE_SIZE } from '../config';
 
 // filter is sent to the server; search and pagination are applied client-side
 // so the priority sort operates on the full filtered dataset before slicing.
-export function useNotifications({ filter, page, search }) {
+export function useNotifications({ filter, page, search, refreshKey = 0 }) {
   const [allNotifications, setAllNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,12 +25,14 @@ export function useNotifications({ filter, page, search }) {
         if (!cancelled) {
           const sorted = sortNotifications(data.notifications ?? []);
           setAllNotifications(sorted);
+          setDemoMode(Boolean(data.demoMode));
           Log('frontend', 'info', 'hook', `Notifications loaded — total:${sorted.length}`);
         }
       })
       .catch((err) => {
         if (!cancelled) {
           setError(err.message ?? 'Unknown error');
+          setDemoMode(false);
           Log('frontend', 'error', 'hook', `useNotifications failed: ${err.message}`);
         }
       })
@@ -38,7 +41,7 @@ export function useNotifications({ filter, page, search }) {
       });
 
     return () => { cancelled = true; };
-  }, [filter, search]);
+  }, [filter, search, refreshKey]);
 
   const total = allNotifications.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -55,5 +58,5 @@ export function useNotifications({ filter, page, search }) {
     return () => clearTimeout(timer);
   }, [notifications]);
 
-  return { notifications, total, totalPages, unreadCount, loading, error };
+  return { notifications, total, totalPages, unreadCount, loading, error, demoMode };
 }

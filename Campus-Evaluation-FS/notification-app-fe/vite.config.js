@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3000,
+    port: 3002,
     proxy: {
       '/evaluation-service': {
         target: 'http://4.224.186.213',
