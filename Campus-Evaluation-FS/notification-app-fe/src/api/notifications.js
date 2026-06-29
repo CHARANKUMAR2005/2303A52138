@@ -50,7 +50,7 @@ function buildDemoNotifications() {
 }
 
 function isAuthFailure(message) {
-  return /Auth failed: 401|given access code is invalid|invalid access code/i.test(message);
+  return /Auth failed:\s*\d+|given access code is invalid|invalid access code|Not Allowed/i.test(message);
 }
 
 // Maps raw API notification (capitalized fields) to the internal shape used by the UI.
